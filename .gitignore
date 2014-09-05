@@ -6,3 +6,12 @@
 
 # R data files from past sessions
 .Rdata
+
+# raw fastq directory
+raw/*
+
+# count tables directory
+counts/*
+
+# snakemake related
+.snakemake
