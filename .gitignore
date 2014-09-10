@@ -7,8 +7,14 @@
 # R data files from past sessions
 .Rdata
 
-# raw fastq directory
-raw/*
+# sequencing reads directory
+fq/*
+
+# trimmed reads directory
+trim/*
+
+# read alignments directory
+bam/*
 
 # count tables directory
 counts/*
