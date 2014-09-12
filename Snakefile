@@ -37,18 +37,44 @@ BOWTIE_PARAMS_LIST = [
 BOWTIE_PARAMS = " ".join(BOWTIE_PARAMS_LIST)
 
 rule all:
-    input: "bam/{sample}_spike_aln.sam".format(sample=s) for s in SAMPLES
+    input: "bam/{sample}_spike_aln_sorted.bam.bai".format(sample=s) for s in SAMPLES
 
+rule spike_aln_index:
+    input: "bam/{sample}_spike_aln_sorted.bam"
+    output: "bam/{sample}_spike_aln_sorted.bam.bai"
+    message: "Aligning spike alignments"
+    shell: "samtools index {input}"
+
+rule spike_aln_sort:
+    input: "bam/{sample}_spike_aln.bam"
+    output: "bam/{sample}_spike_aln_sorted.bam"
+    params: base="bam/{sample}_spike_aln_sorted"
+    message: "Sorting spike alignments"
+    shell: "samtools sort {input} {params.base}"
+
+rule spike_sam2bam:
+    input: "bam/{sample}_spike_aln.sam"
+    output: "bam/{sample}_spike_aln.bam"
+    message: "Converting sam to bam"
+    shell: "samtools view -Sb {input} > {output}"
+    
 rule aln_spikes:
+    """
+    Align trimmed sequences to trimmed spikes.
+    """
     input: "trim/{sample}_trimmed.fastq"
     output: "bam/{sample}_spike_aln.sam"
+    message: "Aligning reads to spike sequences."
     shell: 
-        "bowtie2 {BOWTIE_PARAMS} -x {SPIKES_REF} -U {input} -S {output}"
+        """
+        bowtie2 {BOWTIE_PARAMS} -x {SPIKES_REF} -U {input} -S {output}
+        """
 
 rule trim_reads:
     input: "fq/{sample}.fastq"
     output: "trim/{sample}_trimmed.fastq"
     message: "Trimming sequencing reads."
     shell:
-        "fastx_trimmer -l {SPIKE_TRIMMED_LEN} -i {input} -o {output}"
-    
+        """
+        fastx_trimmer -l {SPIKE_TRIMMED_LEN} -i {input} -o {output}
+        """
