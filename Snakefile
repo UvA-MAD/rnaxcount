@@ -37,7 +37,16 @@ BOWTIE_PARAMS_LIST = [
 BOWTIE_PARAMS = " ".join(BOWTIE_PARAMS_LIST)
 
 rule all:
-    input: "bam/{sample}_spike_aln_sorted.bam.bai".format(sample=s) for s in SAMPLES
+    input: "counts/CountTable_spike.txt"
+
+rule spike_count:
+    input: ("bam/{sample}_spike_aln_sorted.bam.bai".format(sample=s) for s in SAMPLES)
+    params: basename="_spike_aln_sorted.bam" ,
+            bam_dir="./bam",
+            count_dir="./counts"
+    output: "counts/CountTable_spike.txt"
+    message: "Filtering and counting spike reads"
+    shell: "python filter_spike_aln.py count_spikes --basename {params.basename} --bam-dir {params.bam_dir} --count-dir {params.count_dir}" 
 
 rule spike_aln_index:
     input: "bam/{sample}_spike_aln_sorted.bam"

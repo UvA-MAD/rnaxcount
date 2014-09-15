@@ -1,0 +1,11 @@
+Cython==0.21
+beautifulsoup4==4.3.2
+click==3.3
+flake8==2.2.3
+ipython==2.2.0
+mccabe==0.2.1
+pep8==1.5.7
+pyflakes==0.8.1
+pysam==0.8.0
+snakemake==3.1
+wheel==0.24.0
