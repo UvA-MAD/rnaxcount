@@ -7,17 +7,11 @@
 # R data files from past sessions
 .Rdata
 
-# sequencing reads directory
+# raw reads
 fq/*
 
-# trimmed reads directory
-trim/*
-
-# read alignments directory
-bam/*
-
-# count tables directory
-counts/*
+# spikes results
+spikes/*
 
 # snakemake related
 .snakemake

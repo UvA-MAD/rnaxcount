@@ -37,33 +37,33 @@ BOWTIE_PARAMS_LIST = [
 BOWTIE_PARAMS = " ".join(BOWTIE_PARAMS_LIST)
 
 rule all:
-    input: "counts/CountTable_spike.txt"
+    input: "./spikes/counts/CountTable_spike.txt"
 
 rule spike_count:
-    input: ("bam/{sample}_spike_aln_sorted.bam.bai".format(sample=s) for s in SAMPLES)
+    input: ("./spikes/bam/{sample}_spike_aln_sorted.bam.bai".format(sample=s) for s in SAMPLES)
     params: basename="_spike_aln_sorted.bam" ,
-            bam_dir="./bam",
-            count_dir="./counts"
-    output: "counts/CountTable_spike.txt"
+            bam_dir="./spikes/bam",
+            count_dir="./spikes/counts"
+    output: "./spikes/counts/CountTable_spike.txt"
     message: "Filtering and counting spike reads"
     shell: "python filter_spike_aln.py count_spikes --basename {params.basename} --bam-dir {params.bam_dir} --count-dir {params.count_dir}" 
 
 rule spike_aln_index:
-    input: "bam/{sample}_spike_aln_sorted.bam"
-    output: "bam/{sample}_spike_aln_sorted.bam.bai"
+    input: "./spikes/bam/{sample}_spike_aln_sorted.bam"
+    output: "./spikes/bam/{sample}_spike_aln_sorted.bam.bai"
     message: "Aligning spike alignments"
     shell: "samtools index {input}"
 
 rule spike_aln_sort:
-    input: "bam/{sample}_spike_aln.bam"
-    output: "bam/{sample}_spike_aln_sorted.bam"
-    params: base="bam/{sample}_spike_aln_sorted"
+    input: "./spikes/bam/{sample}_spike_aln.bam"
+    output: "./spikes/bam/{sample}_spike_aln_sorted.bam"
+    params: base="spikes/bam/{sample}_spike_aln_sorted"
     message: "Sorting spike alignments"
     shell: "samtools sort {input} {params.base}"
 
 rule spike_sam2bam:
-    input: "bam/{sample}_spike_aln.sam"
-    output: "bam/{sample}_spike_aln.bam"
+    input: "./spikes/bam/{sample}_spike_aln.sam"
+    output: "./spikes/bam/{sample}_spike_aln.bam"
     message: "Converting sam to bam"
     shell: "samtools view -Sb {input} > {output}"
     
@@ -71,19 +71,23 @@ rule aln_spikes:
     """
     Align trimmed sequences to trimmed spikes.
     """
-    input: "trim/{sample}_trimmed.fastq"
-    output: "bam/{sample}_spike_aln.sam"
+    input: "./spikes/trim/{sample}_trimmed.fastq"
+    output: "./spikes/bam/{sample}_spike_aln.sam"
     message: "Aligning reads to spike sequences."
     shell: 
         """
         bowtie2 {BOWTIE_PARAMS} -x {SPIKES_REF} -U {input} -S {output}
         """
 
-rule trim_reads:
-    input: "fq/{sample}.fastq"
-    output: "trim/{sample}_trimmed.fastq"
-    message: "Trimming sequencing reads."
+rule trim_reads_spike:
+    input: fqs="fq/{sample}.fastq", dir="./spikes"
+    output: "./spikes/trim/{sample}_trimmed.fastq"
+    message: "Trimming sequencing reads for spike alignment."
     shell:
         """
-        fastx_trimmer -l {SPIKE_TRIMMED_LEN} -i {input} -o {output}
+        fastx_trimmer -l {SPIKE_TRIMMED_LEN} -i {input.fqs} -o {output}
         """
+
+rule create_spike_dir:
+    output: "./spikes"
+    shell: "mkdir -p ./spikes/trim ./spikes/bam ./spikes/counts"
