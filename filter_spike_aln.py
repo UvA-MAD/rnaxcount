@@ -3,6 +3,7 @@ import pysam
 import os
 import pandas as pd
 from collections import defaultdict
+from Bio import SeqIO
 
 
 def filter_and_count(bamfile):
@@ -81,6 +82,25 @@ def count_spikes(basename, bam_dir, count_dir):
     count_file = os.path.join(count_dir, "CountTable_spike.txt")
     with open(count_file, 'w') as fh:
         count_table.to_csv(fh, sep="\t")
+
+@cli.command()
+@click.option('--input',
+               help="fastq file to tream",
+               type=click.File('rt'))
+@click.option('--output',
+              help='filtered reads file name',
+              type=click.File('wt'))
+@click.option('--min-len',
+              type=int,
+              help='min lenght of the read')
+def filter_short_reads(input, output, min_len):
+    """
+    Removes reads shorter than min-len from fastq file
+    """
+    reads = [r for r in SeqIO.parse(input, 'fastq') if len(r) >= min_len]
+    SeqIO.write(reads, output, format='fastq')
+
+
 
 if __name__ == '__main__':
     cli()

@@ -13,5 +13,8 @@ fq/*
 # spikes results
 spikes/*
 
+# miRNA results
+miRNA/*
+
 # snakemake related
 .snakemake

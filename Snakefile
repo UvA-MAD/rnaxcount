@@ -4,6 +4,8 @@ SPEC = "dre"
 # reference spikein sequences
 SPIKES_REF = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference-db/RBAB/spikes/spikes40"
 
+MIRNA_REF = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference/external/dre/RNA/miRNA/hairpin21.fa"
+
 # experiment directory in which while analysis is conducted
 ANALYSIS_HOME = "./"
 
@@ -23,6 +25,10 @@ COUNTS_DIR = "./counts"
 # length of the reads used for alignment to spikes
 SPIKE_TRIMMED_LEN = 40 
 
+# length of the reads used for alignment to miRNA
+MIRNA_TRIMMED_LEN = 40
+MIRNA_MIN_LEN = '12'
+
 # bowtie settings
 BOWTIE_PARAMS_LIST = [
     "-L 6",                      # seed length
@@ -37,8 +43,35 @@ BOWTIE_PARAMS_LIST = [
 BOWTIE_PARAMS = " ".join(BOWTIE_PARAMS_LIST)
 
 rule all:
-    input: "./spikes/counts/CountTable_spike.txt"
+    input: "./spikes/counts/CountTable_spike.txt",
+           ("./miRNA/filtered/{sample}_filtered.fastq".format(sample=s) for s in SAMPLES)
 
+rule filter_reads_miRNA:
+    input: "./miRNA/trim/{sample}_trimmed.fastq"
+    output: "./miRNA/filtered/{sample}_filtered.fastq"
+    params: min_len=MIRNA_MIN_LEN
+    message: "Filtering out reads shorter than %s" % MIRNA_MIN_LEN
+    shell:
+        """
+        mkdir -p ./miRNA/filtered
+        python filter_spike_aln.py filter_short_reads --input {input} --output {output} --min-len {params.min_len}
+        """
+
+rule trim_reads_miRNA:
+    input: fqs="fq/{sample}.fastq", dir="./miRNA"
+    output: "./miRNA/trim/{sample}_trimmed.fastq"
+    message: "Trimming sequencing reads fro miRNA alignment."
+    shell:
+        """
+        fastx_trimmer -l {MIRNA_TRIMMED_LEN} -i {input.fqs} -o {output}
+        """
+
+# miRNA alignment and counting
+rule create_miRNA_dir:
+    output: "./miRNA"
+    shell: "mkdir -p ./miRNA/trim ./miRNA/bam ./miRNA/counts"
+
+# spike alignment and counting
 rule spike_count:
     input: ("./spikes/bam/{sample}_spike_aln_sorted.bam.bai".format(sample=s) for s in SAMPLES)
     params: basename="_spike_aln_sorted.bam" ,
