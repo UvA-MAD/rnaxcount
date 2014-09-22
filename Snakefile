@@ -54,7 +54,7 @@ rule filter_reads_miRNA:
     shell:
         """
         mkdir -p ./miRNA/filtered
-        python filter_spike_aln.py filter_short_reads --input {input} --output {output} --min-len {params.min_len}
+        python sRNA_tools.py filter_short_reads --input {input} --output {output} --min-len {params.min_len}
         """
 
 rule trim_reads_miRNA:
