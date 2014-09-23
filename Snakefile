@@ -4,7 +4,7 @@ SPEC = "dre"
 # reference spikein sequences
 SPIKES_REF = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference-db/RBAB/spikes/spikes40"
 
-MIRNA_REF = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference/external/dre/RNA/miRNA/hairpin21.fa"
+MIRNA_REF = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference-db/external/dre/RNA/miRNA/hairpin21"
 
 # experiment directory in which while analysis is conducted
 ANALYSIS_HOME = "./"
@@ -57,7 +57,39 @@ MIRNA_BOWTIE_PARAMS = " ". join(MIRNA_BOWTIE_PARAMS_LIST)
 
 rule all:
     input: "./spikes/counts/CountTable_spike.txt",
-           ("./miRNA/filtered/{sample}_filtered.fastq".format(sample=s) for s in SAMPLES)
+           ("./miRNA/bam/{sample}_mirna_aln_sorted.bam.bai".format(sample=s) for s in SAMPLES)
+
+
+rule miRNA_aln_index:
+    input: "./miRNA/bam/{sample}_mirna_aln_sorted.bam"
+    output: "./miRNA/bam/{sample}_mirna_aln_sorted.bam.bai"
+    message: "Indexing miRNA alignments"
+    shell: "samtools index {input}"
+
+rule miRNA_aln_sort:
+    input: "./miRNA/bam/{sample}_mirna_aln.bam"
+    output: "./miRNA/bam/{sample}_mirna_aln_sorted.bam"
+    params: base="miRNA/bam/{sample}_mirna_aln_sorted"
+    message: "Sorting miRNA alignments"
+    shell: "samtools sort {input} {params.base}"
+
+rule miRNA_sam2bam:
+    input: "./miRNA/bam/{sample}_mirna_aln.sam"
+    output: "./miRNA/bam/{sample}_mirna_aln.bam"
+    message: "Converting miRNA alignments from sam to bam"
+    shell: "samtools view -Sb {input} > {output}"
+
+rule aln_miRNA:
+    """
+    Align trimmed sequences to miRNA sequences.
+    """
+    input: "./miRNA/trim/{sample}_trimmed.fastq"
+    output: "./miRNA/bam/{sample}_mirna_aln.sam"
+    message: "Aligning reads to miRNA sequences."
+    shell: 
+        """
+        bowtie2 {MIRNA_BOWTIE_PARAMS} -x {MIRNA_REF} -U {input} -S {output}
+        """
 
 rule filter_reads_miRNA:
     input: "./miRNA/trim/{sample}_trimmed.fastq"
@@ -97,7 +129,7 @@ rule spike_count:
 rule spike_aln_index:
     input: "./spikes/bam/{sample}_spike_aln_sorted.bam"
     output: "./spikes/bam/{sample}_spike_aln_sorted.bam.bai"
-    message: "Aligning spike alignments"
+    message: "Indexing spike alignments"
     shell: "samtools index {input}"
 
 rule spike_aln_sort:
