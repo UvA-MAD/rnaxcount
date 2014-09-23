@@ -16,7 +16,7 @@ SAMPLES =  [s[:-6] for s in os.listdir(FQ_DIR) if s.endswith(".fastq")]
 # trimmed reads dir
 TRIM_DIR = "./trim"
 
-# alignments dir
+# alignments di
 BAM_DIR = "./bam"
 
 # count tables directory
@@ -45,11 +45,12 @@ SPIKE_BOWTIE_PARAMS_LIST = [
 SPIKE_BOWTIE_PARAMS = " ".join(SPIKE_BOWTIE_PARAMS_LIST)
 
 MIRNA_BOWTIE_PARAMS_LIST = [
+    "-L 6"                       # seed length
     "--ignore-quals",            # treat as all qualities would be max possible
     "--norc",                    # do not align to reverse strand
     "--local",                   # allow for softcliping
     "--score-min L,0,1.2",       # 1.2*read_length -- 10% mismatches allowed
-    "--p 6"
+    "-p 6"                       # number of threads
 ]
 MIRNA_BOWTIE_PARAMS = " ". join(MIRNA_BOWTIE_PARAMS_LIST)
 
