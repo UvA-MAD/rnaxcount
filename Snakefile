@@ -30,17 +30,29 @@ MIRNA_TRIMMED_LEN = 40
 MIRNA_MIN_LEN = '12'
 
 # bowtie settings
+# alignment score differs between 'local' and 'end-to-end' alignment
+# this is why -score-min differs for 10% mm
 SPIKE_BOWTIE_PARAMS_LIST = [
     "-L 6",                      # seed length
-    "-i S,0,0.5",                 # interval between extracted seeds
+    "-i S,0,0.5",                # interval between extracted seeds
     "--ignore-quals",            # treat as all qualities would be max possible
     "--norc",                    # do not align to reverse strand
-    "--score-min L,-1,-0.6",   # linear function y=-1-0.6*x
+    "--score-min L,-1,-0.6",     # -1-0.6*read_length -- 10% mismatches allowed
     "-D 20",                     # consecutive seed extension attempts
     "-t",                        # print clock time
     "-p 16"                      # number of threads
 ]
 SPIKE_BOWTIE_PARAMS = " ".join(SPIKE_BOWTIE_PARAMS_LIST)
+
+MIRNA_BOWTIE_PARAMS_LIST = [
+    "--ignore-quals",            # treat as all qualities would be max possible
+    "--norc",                    # do not align to reverse strand
+    "--local",                   # allow for softcliping
+    "--score-min L,0,1.2",       # 1.2*read_length -- 10% mismatches allowed
+    "--p 6"
+]
+MIRNA_BOWTIE_PARAMS = " ". join(MIRNA_BOWTIE_PARAMS_LIST)
+
 
 rule all:
     input: "./spikes/counts/CountTable_spike.txt",
