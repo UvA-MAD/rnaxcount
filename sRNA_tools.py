@@ -101,6 +101,5 @@ def filter_short_reads(input, output, min_len):
     SeqIO.write(reads, output, format='fastq')
 
 
-
 if __name__ == '__main__':
     cli()

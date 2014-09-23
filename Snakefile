@@ -30,7 +30,7 @@ MIRNA_TRIMMED_LEN = 40
 MIRNA_MIN_LEN = '12'
 
 # bowtie settings
-BOWTIE_PARAMS_LIST = [
+SPIKE_BOWTIE_PARAMS_LIST = [
     "-L 6",                      # seed length
     "-i S,0,0.5",                 # interval between extracted seeds
     "--ignore-quals",            # treat as all qualities would be max possible
@@ -40,7 +40,7 @@ BOWTIE_PARAMS_LIST = [
     "-t",                        # print clock time
     "-p 16"                      # number of threads
 ]
-BOWTIE_PARAMS = " ".join(BOWTIE_PARAMS_LIST)
+SPIKE_BOWTIE_PARAMS = " ".join(SPIKE_BOWTIE_PARAMS_LIST)
 
 rule all:
     input: "./spikes/counts/CountTable_spike.txt",
@@ -79,7 +79,7 @@ rule spike_count:
             count_dir="./spikes/counts"
     output: "./spikes/counts/CountTable_spike.txt"
     message: "Filtering and counting spike reads"
-    shell: "python filter_spike_aln.py count_spikes --basename {params.basename} --bam-dir {params.bam_dir} --count-dir {params.count_dir}" 
+    shell: "python sRNA_tools.py count_spikes --basename {params.basename} --bam-dir {params.bam_dir} --count-dir {params.count_dir}" 
 
 rule spike_aln_index:
     input: "./spikes/bam/{sample}_spike_aln_sorted.bam"
@@ -109,7 +109,7 @@ rule aln_spikes:
     message: "Aligning reads to spike sequences."
     shell: 
         """
-        bowtie2 {BOWTIE_PARAMS} -x {SPIKES_REF} -U {input} -S {output}
+        bowtie2 {SPIKE_BOWTIE_PARAMS} -x {SPIKES_REF} -U {input} -S {output}
         """
 
 rule trim_reads_spike:
