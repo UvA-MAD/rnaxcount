@@ -4,6 +4,7 @@ import os
 import pandas as pd
 from collections import defaultdict
 from Bio import SeqIO
+from BCBio import GFF
 
 
 def filter_and_count(bamfile):
@@ -83,10 +84,11 @@ def count_spikes(basename, bam_dir, count_dir):
     with open(count_file, 'w') as fh:
         count_table.to_csv(fh, sep="\t")
 
+
 @cli.command()
 @click.option('--input',
-               help="fastq file to tream",
-               type=click.File('rt'))
+              help="fastq file to tream",
+              type=click.File('rt'))
 @click.option('--output',
               help='filtered reads file name',
               type=click.File('wt'))
@@ -99,6 +101,29 @@ def filter_short_reads(input, output, min_len):
     """
     reads = [r for r in SeqIO.parse(input, 'fastq') if len(r) >= min_len]
     SeqIO.write(reads, output, format='fastq')
+
+
+@cli.command()
+@click.option('--dat',
+              help="mirna annotation in embl format",
+              type=click.File('rt'))
+@click.option('--org',
+              help="organism (ie. dre, dme, cel)",
+              type=str)
+@click.option('--gff',
+              help="output gff file",
+              type=click.File('wt'))
+def embl2gff(dat, org, gff):
+    """
+    Parse embl file and estract mature miRNA location information.
+    """
+    # extract records
+    dat_parser = SeqIO.parse(dat, "embl")
+    # extract organism specific miRNAs
+    org_mirnas = [mirna for mirna in dat_parser if mirna.name.startswith(org)]
+    for mirna in org_mirnas:
+        mirna.id = mirna.name
+    GFF.write(org_mirnas, gff)
 
 
 if __name__ == '__main__':
