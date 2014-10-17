@@ -6,6 +6,8 @@ SPIKES_REF = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference-db/RBAB/spikes/sp
 
 MIRNA_REF = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference-db/external/dre/RNA/miRNA/hairpin21"
 
+MIRNA_ANNOTATIONS = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference-db/external/RNA/mirBase21/miRNA.dat"
+
 # experiment directory in which while analysis is conducted
 ANALYSIS_HOME = "./"
 
@@ -57,8 +59,13 @@ MIRNA_BOWTIE_PARAMS = " ". join(MIRNA_BOWTIE_PARAMS_LIST)
 
 rule all:
     input: "./spikes/counts/CountTable_spike.txt",
-           ("./miRNA/bam/{sample}_mirna_aln_sorted.bam.bai".format(sample=s) for s in SAMPLES)
+           ("./miRNA/counts/{sample}_mirna.csv".format(sample=s) for s in SAMPLES)
 
+rule miRNA_count:
+    input: "./miRNA/bam/{sample}_mirna_aln_sorted.bam"
+    output: "./miRNA/counts/{sample}_mirna.csv"
+    message: "Counting miRNAs"
+    shell: "python sRNA_tools.py count_mirnas --dat {MIRNA_ANNOTATIONS} --bamfile {input} --out {output}"
 
 rule miRNA_aln_index:
     input: "./miRNA/bam/{sample}_mirna_aln_sorted.bam"
