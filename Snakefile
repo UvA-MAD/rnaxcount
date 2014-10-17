@@ -59,12 +59,12 @@ MIRNA_BOWTIE_PARAMS = " ". join(MIRNA_BOWTIE_PARAMS_LIST)
 
 rule all:
     input: "./spikes/counts/CountTable_spike.txt",
-           ("./miRNA/counts/{sample}_mirna.csv".format(sample=s) for s in SAMPLES)
+           "./miRNA/counts/CountTable_mirna.txt",
 
 rule merge_miRNA_counts:
-    input: "./miRNA/counts/{sample}_mirna.csv"
+    input: ("./miRNA/counts/{sample}_mirna.csv".format(sample=s) for s in SAMPLES)
     output: "./miRNA/counts/CountTable_mirna.txt"
-     
+    shell: "python sRNA_tools.py merge_count_tables --dir ./miRNA/counts --suffix _mirna.csv --out {output}"     
 
 rule miRNA_count:
     input: "./miRNA/bam/{sample}_mirna_aln_sorted.bam"
