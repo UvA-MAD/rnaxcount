@@ -1,10 +1,14 @@
 import click
 import pysam
 import os
+import csv
 import pandas as pd
 from collections import defaultdict
 from Bio import SeqIO
 from BCBio import GFF
+from itertools import groupby
+from functools import reduce
+from collections import Counter
 
 
 def filter_and_count(bamfile):
@@ -125,6 +129,163 @@ def embl2gff(dat, org, gff):
         mirna.id = mirna.name
     GFF.write(org_mirnas, gff)
 
+
+@cli.command()
+@click.option('--dat',
+              help="mirna annotation in embl format",
+              type=click.File('rt'))
+@click.option('--bamfile',
+              help="sorted and indexed alignments in bam format",
+              type=click.STRING)
+@click.option('--out',
+              help="output counts file",
+              type=click.File('wt'))
+def count_miRNAs(dat, bamfile, out):
+    """
+    Count mirRNAs from alignments to pre-miRNAs.
+
+    Read alignment manipulation is done with pysam.
+    Documentation of pysam can be found:
+    http://pysam.readthedocs.org/en/latest/api.html
+    """
+
+    def make_group_aln_func(hairpin):
+        """
+        Create a function that will group alignments.
+
+        Alignments are asigned into two groups:
+        'mature': those overlaping with mature miRNA
+        'pre': those mapped two hairpin outside mature annotations
+        """
+        mature_mirnas = hairpin.features
+        mature_ranges = [(int(mirna.location.start), int(mirna.location.end))
+                         for mirna in mature_mirnas]
+
+        def group_aln(aln):
+            for mr in mature_ranges:
+                is_in = aln.pos >= mr[0] and aln.pos < mr[1]
+                extend_3 = (aln.pos + aln.inferred_length) < (mr[1] + 3)
+                if (is_in and extend_3):
+                    # mature miRNA
+                    if is_quality_mature(aln):
+                        return('mature')
+                    else:
+                        return('low_qual')
+                else:
+                    # pre-miRNA
+                    if is_quality_pre(aln):
+                        return('pre')
+                    else:
+                        return('low_qual')
+        return(group_aln)
+
+    def is_quality_mature(aln):
+        """
+        Discard reads aligning to mature miRNAs
+        according to specific rules.
+        """
+        # allow 3' softcliping but not 5'
+        # sofcliping is a tupple (4,...) in a cigar tupple list
+        # check if it is as a first typple of the alignment cigar
+        cig = aln.cigar
+        if cig[0][0] == 4:
+            return(False)
+
+        # drop alignments with more than 3 nucleotides softclipped on 3'
+        if (cig[-1][0] == 4 and cig[-1][1] > 3):
+            return(False)
+        # allow for 10%  of mismatches + indels
+        # bowtie does not log mismatches in cigar string
+        # but uses tag 'NM'
+        n_mismatch = [tag[1] for tag in aln.tags if tag[0] == 'NM'][0]
+        # insertion has code 1 and deletion 2 in cigar string
+        n_indel = sum([c[1] for c in cig if c[0] in (1, 2)])
+        if (n_mismatch + n_indel > 0.1*aln.rlen):
+            return(False)
+        return(True)
+
+    def is_quality_pre(aln):
+        """
+        Discard reads aligned to hairpin
+        according to specific rules.
+        """
+        cig = aln.cigar
+        # allow for 10%  of mismatches + indels + sofclip
+        # bowtie does not log mismatches in cigar string
+        # but uses tag 'NM'
+        n_mismatch = [tag[1] for tag in aln.tags if tag[0] == 'NM'][0]
+        # insertion has code 1 and deletion 2 in cigar string
+        n_indel = sum([c[1] for c in cig if c[0] in (1, 2)])
+        n_softclip = sum([c[1] for c in cig if c[0] == 4])
+        if (n_mismatch + n_indel + n_softclip > 0.1*aln.rlen):
+            return(False)
+        return(True)
+
+    def make_count_alns_func(hairpin):
+        def count_alns(countlist, group_aln):
+            mature_mirnas = [feature for feature in hairpin.features]
+            group, g_aln = group_aln
+            for aln in g_aln:
+                start = aln.pos
+                end = aln.pos + aln.inferred_length
+                length = aln.inferred_length
+                if group == 'pre':
+                    seqid = "%s_%s_%d_%d_%d" % (hairpin.name,
+                                                "pre", start, end,
+                                                length)
+                    countlist += [seqid]
+                elif group == 'mature':
+                    # check to wich mature miRNA the read aligns
+                    mirna = [mirna for mirna in mature_mirnas if (start >= int(mirna.location.start) and start < int(mirna.location.end))][0]
+                    name = mirna.qualifiers['product'][0]
+                    seqid = "%s_%s_%d_%d_%d" % (hairpin.name,
+                                                name, start, end,
+                                                length)
+                    countlist += [seqid]
+                else:
+                    continue
+            return(countlist)
+        return(count_alns)
+
+    # read in miRNA annotations from embl formated dat file
+    annots = SeqIO.parse(dat, 'embl')
+    alignments = pysam.Samfile(bamfile, 'rb')
+    references = alignments.references
+
+    # fetch annotation for reference sequences
+    # prsent in the bam file
+    # for some reason name is valid seqid fo the sequence
+    hairpin_annots = [a for a in annots if a.name in references]
+
+    # loop over all SeqRecords in annotations
+    counts_tupples = []
+    for hairpin in hairpin_annots:
+        # mature miRNAs are the features of hairpin SeqRecords
+        # create grouping function which knows miRNA annotations
+        group_aln = make_group_aln_func(hairpin)
+        # get reads aligning to this hairpin
+        hairpin_alns = alignments.fetch(hairpin.name)
+        # group alignments into those mapped to mature miRNA
+        # and those mapping autside (pre-miRNA)
+        grouped_alns = groupby(hairpin_alns, group_aln)
+        # count
+        count_alns = make_count_alns_func(hairpin)
+        counts_list = reduce(count_alns, grouped_alns, [])
+        # cont same occurences of seqid
+        counts_dict = Counter(counts_list)
+        # store them as list of tupples, because it's difficult
+        # to join dictionaries
+        counts_tupples += [i for i in counts_dict.items()]
+
+    # create dir for counts if needed
+    counts_dir = os.path.dirname(out.name)
+    if not os.path.exists(counts_dir):
+        os.makedirs(counts_dir)
+
+    # export counts as csv file
+    csv_writer = csv.writer(out)
+    for row in counts_tupples:
+        csv_writer.writerow(row)
 
 if __name__ == '__main__':
     cli()
