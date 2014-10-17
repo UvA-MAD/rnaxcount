@@ -287,5 +287,33 @@ def count_miRNAs(dat, bamfile, out):
     for row in counts_tupples:
         csv_writer.writerow(row)
 
+
+@cli.command()
+@click.option('--dir',
+              help="count tables directory",
+              type=click.STRING)
+@click.option('--suffix',
+              help="common suffix of count files, used to extract smapleids",
+              type=click.STRING)
+@click.option('--out',
+              help="output counts file",
+              type=click.File('wt'))
+def merge_count_tables(dir, suffix, out):
+    """
+    Merge count tables on seqid's into single table.
+    """
+    # list files in dir
+    count_files = [f for f in os.listdir(dir) if f.endswith(".csv")]
+    samples = [f.split(suffix)[0] for f in count_files]
+    dfs = [pd.read_csv(os.path.join(dir, f), index_col=0) for f in count_files]
+    merged_dfs = reduce(lambda df1, df2: pd.merge(df1, df2,
+                                                  left_index=True,
+                                                  right_index=True,
+                                                  how="outer"), dfs)
+    merged_dfs = merged_dfs.fillna(0)
+    merged_dfs.columns = samples
+    merged_dfs.to_csv(out, sep="\t")
+
+
 if __name__ == '__main__':
     cli()

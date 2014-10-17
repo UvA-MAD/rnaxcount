@@ -61,6 +61,11 @@ rule all:
     input: "./spikes/counts/CountTable_spike.txt",
            ("./miRNA/counts/{sample}_mirna.csv".format(sample=s) for s in SAMPLES)
 
+rule merge_miRNA_counts:
+    input: "./miRNA/counts/{sample}_mirna.csv"
+    output: "./miRNA/counts/CountTable_mirna.txt"
+     
+
 rule miRNA_count:
     input: "./miRNA/bam/{sample}_mirna_aln_sorted.bam"
     output: "./miRNA/counts/{sample}_mirna.csv"
