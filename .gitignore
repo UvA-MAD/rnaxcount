@@ -18,3 +18,7 @@ miRNA/*
 
 # snakemake related
 .snakemake
+
+# R project files
+.Rproj.user
+*.Rproj

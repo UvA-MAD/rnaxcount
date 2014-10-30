@@ -89,6 +89,28 @@ def count_spikes(basename, bam_dir, count_dir):
         count_table.to_csv(fh, sep="\t")
 
 
+# subcommand used for counting number of reads
+@cli.command()
+@click.option('--fq-dir',
+              type=click.Path(exists=True, resolve_path=True),
+              help='directory with fastq files')
+@click.option('--count-dir',
+              type=click.Path(),
+              help='directory to save count table in')
+def count_fq_reads(fq_dir, count_dir):
+    """
+    Count reads in fastq files and save csv file with counts per sample.
+    """
+    fastqs = [f for f in os.listdir(fq_dir) if f.endswith(".fastq")]
+    with open(os.path.join(count_dir, "total_reads.csv"), 'w') as fout:
+        csv_writer = csv.writer(fout, delimiter="\t")
+        for f in fastqs:
+            fq = SeqIO.parse(os.path.join(fq_dir, f), "fastq")
+            sample_name = f.split(".fastq")[0]
+            count = sum([1 for i in fq])
+            csv_writer.writerow([sample_name, count])
+
+
 @cli.command()
 @click.option('--input',
               help="fastq file to tream",
