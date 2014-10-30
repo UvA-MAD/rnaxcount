@@ -1,3 +1,4 @@
+from snakemake.utils import R
 # species for which pipeline is run
 SPEC = "dre"
 
@@ -21,8 +22,8 @@ TRIM_DIR = "./trim"
 # alignments di
 BAM_DIR = "./bam"
 
-# count tables directory
-COUNTS_DIR = "./counts"
+# spike count table directory
+SPIKE_COUNTS_DIR = "./spikes/counts"
 
 # length of the reads used for alignment to spikes
 SPIKE_TRIMMED_LEN = 40 
@@ -60,6 +61,8 @@ MIRNA_BOWTIE_PARAMS = " ". join(MIRNA_BOWTIE_PARAMS_LIST)
 rule all:
     input: "./spikes/counts/CountTable_spike.txt",
            "./miRNA/counts/CountTable_mirna.txt",
+           "./spikes/counts/norm_count.png"
+
 
 rule merge_miRNA_counts:
     input: ("./miRNA/counts/{sample}_mirna.csv".format(sample=s) for s in SAMPLES)
@@ -127,6 +130,37 @@ rule trim_reads_miRNA:
 rule create_miRNA_dir:
     output: "./miRNA"
     shell: "mkdir -p ./miRNA/trim ./miRNA/bam ./miRNA/counts"
+
+# R command in snakemake don't take input and output
+# putting them into constants
+SPIKE_COUNT = "./spikes/counts/CountTable_spike.txt"
+TOTAL_COUNT = os.path.join(SPIKE_COUNTS_DIR, "total_reads.csv")
+COUNT_PNG = "./spikes/counts/count.png",
+NORM_COUNT_PNG = "./spikes/counts/norm_count.png"
+# make spike count plots
+rule spike_count_plots:
+    input: totalcount=os.path.join(SPIKE_COUNTS_DIR, "total_reads.csv"),
+           spikecount="./spikes/counts/CountTable_spike.txt"
+    output: countpng="./spikes/counts/count.png",
+            normcountpng="./spikes/counts/norm_count.png"
+    run: R("""
+           library(faradr);
+           png(filename="{COUNT_PNG}");
+           plot(PlotSpikeCounts("{SPIKE_COUNT}"));
+           dev.off();
+           png(filename="{NORM_COUNT_PNG}");
+           plot(PlotNormalSpikeCounts("{SPIKE_COUNT}", "{TOTAL_COUNT}"));
+           dev.off();
+           """)
+             
+# calculate amount of reads per sample for spike normalise plots
+rule total_reads_count:
+   input: "./spikes/counts/CountTable_spike.txt"
+   params: fqdir=FQ_DIR,
+           spikedir = SPIKE_COUNTS_DIR
+   output: os.path.join(SPIKE_COUNTS_DIR, "total_reads.csv") 
+   message: "Count nubmer of reads in each sample"
+   shell: "python sRNA_tools.py count_fq_reads --fq-dir {params.fqdir} --count-dir {params.spikedir}"
 
 # spike alignment and counting
 rule spike_count:
