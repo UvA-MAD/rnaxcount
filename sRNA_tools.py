@@ -2,6 +2,7 @@ import click
 import pysam
 import os
 import csv
+import itertools
 import pandas as pd
 from collections import defaultdict
 from Bio import SeqIO
@@ -47,6 +48,39 @@ def filter_and_count(bamfile):
 def cli():
     pass
 
+
+@cli.command()
+@click.option('--bam-dir',
+              type=click.Path(exists=True, resolve_path=True),
+              help='directory with bam files')
+@click.option('--count-dir',
+              type=click.Path(),
+              help='directory to save count table in')
+def count_pirna(bam_dir, count_dir):
+    """
+    Makes count table for piRNAs
+    """
+    # get the list of files that match the basname
+    bams = [f for f in os.listdir(bam_dir) if f.endswith("_sorted.bam")]
+    samples = [b.split("_pirna_aln_sorted.bam")[0] for b in bams]
+
+    ref_lists = [pysam.Samfile(os.path.join(bam_dir, bam),
+                               'rb').references
+                 for bam in bams]
+    refs = list(set(itertools.chain(*ref_lists)))
+
+    count_dict = {}
+    for bam, sample in zip(bams, samples):
+        samfile = pysam.Samfile(os.path.join(bam_dir, bam), 'rb')
+        counts = [samfile.count(reference=ref) for ref in refs]
+        count_dict[sample] = counts
+
+    df = pd.DataFrame.from_dict(count_dict)
+    df.index = refs
+    csv_path = os.path.join(count_dir, "CountTable_pirna.txt")
+    df.to_csv(csv_path, sep="\t")
+
+    # extract sample names from bam file names
 
 # subcommand used for filtering and counting spikes
 @cli.command()

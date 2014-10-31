@@ -1,3 +1,4 @@
+import os
 from snakemake.utils import R
 # species for which pipeline is run
 SPEC = "dre"
@@ -8,6 +9,8 @@ SPIKES_REF = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference-db/RBAB/spikes/sp
 MIRNA_REF = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference-db/external/dre/RNA/miRNA/hairpin21"
 
 MIRNA_ANNOTATIONS = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference-db/external/RNA/mirBase21/miRNA.dat"
+
+PIRNA_REF = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference-db/external/dre/RNA/piRNA/piRNA"
 
 # experiment directory in which while analysis is conducted
 ANALYSIS_HOME = "./"
@@ -57,13 +60,66 @@ MIRNA_BOWTIE_PARAMS_LIST = [
 ]
 MIRNA_BOWTIE_PARAMS = " ". join(MIRNA_BOWTIE_PARAMS_LIST)
 
+PIRNA_BOWTIE_PARAMS_LIST = [
+    "-L 6",                      # seed length
+    "--ignore-quals",            # treat as all qualities would be max possible
+    "--norc",                    # do not align to reverse strand
+    "--score-min L,-1,-0.6",     # -1-0.6*read_length -- 10% mismatches allowed
+    "-D 20",                     # consecutive seed extension attempts
+    "-t",                        # print clock time
+    "-p 16"                      # number of threads
+]
+PIRNA_BOWTIE_PARAMS = " ".join(PIRNA_BOWTIE_PARAMS_LIST)
 
 rule all:
     input: "./spikes/counts/CountTable_spike.txt",
            "./miRNA/counts/CountTable_mirna.txt",
+           "./piRNA/counts/CountTable_pirna.txt",
            "./spikes/counts/norm_count.png"
 
+# count piRNAs
+rule count_piRNA:
+    input:("./piRNA/bam/{sample}_pirna_aln_sorted.bam".format(sample=s) for s in SAMPLES)
+    output: "./piRNA/counts/CountTable_pirna.txt"
+    params: bam_dir="./piRNA/bam/",
+            count_dir="./piRNA/counts/"
+    shell: "python sRNA_tools.py count_pirna --bam-dir {params.bam_dir} --count-dir {params.count_dir}"     
 
+#
+# sam to bam, sort and index
+rule sam2bam_sort_index:
+    input: "./piRNA/bam/{sample}_pirna_aln.sam"
+    output: "./piRNA/bam/{sample}_pirna_aln.bam",
+            "./piRNA/bam/{sample}_pirna_aln_sorted.bam",
+            "./piRNA/bam/{sample}_pirna_aln_sorted.bam.bai"
+    params: bam="./piRNA/bam/{sample}_pirna_aln.bam",
+            sorted_base="./piRNA/bam/{sample}_pirna_aln_sorted",
+            sorted_bam="./piRNA/bam/{sample}_pirna_aln_sorted.bam"
+    message: "Converting piRNA alignments to bam, sorting and indexing."
+    shell:
+        """
+        samtools view -bS {input} > {params.bam}
+        samtools sort {params.bam} {params.sorted_base}
+        samtools index {params.sorted_bam}
+        """
+
+# piRNA
+rule aln_piRNA:
+    input: fq="fq/{sample}.fastq",
+           dir="./piRNA/bam/"
+    output: "./piRNA/bam/{sample}_pirna_aln.sam"
+    message: "Aligning reads to piRNA sequences."
+    shell:
+        """
+        bowtie2 {PIRNA_BOWTIE_PARAMS} -x {PIRNA_REF} -U {input.fq} -S {output}
+        """
+
+rule create_piRNA_dir:
+    output: "./piRNA/bam/",
+            "./piRNA/counts/"
+    shell: "mkdir -p ./piRNA/bam ./piRNA/counts"
+
+# mirRNA
 rule merge_miRNA_counts:
     input: ("./miRNA/counts/{sample}_mirna.csv".format(sample=s) for s in SAMPLES)
     output: "./miRNA/counts/CountTable_mirna.txt"

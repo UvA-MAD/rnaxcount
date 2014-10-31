@@ -16,6 +16,9 @@ spikes/*
 # miRNA results
 miRNA/*
 
+# piRNA results
+piRNA/*
+
 # snakemake related
 .snakemake
 
