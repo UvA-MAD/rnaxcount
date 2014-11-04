@@ -78,14 +78,17 @@ rule all:
            "./spikes/counts/norm_count.png"
 
 # count piRNAs
+PIRNA_BAM_DIR = "./piRNA/bam/"
+PIRNA_COUNTS_FILE = "./piRNA/counts/CountTable_pirna.txt"
+PIRNA_BASE_NAME = "_pirna_aln_sorted.bam"
 rule count_piRNA:
     input:("./piRNA/bam/{sample}_pirna_aln_sorted.bam".format(sample=s) for s in SAMPLES)
     output: "./piRNA/counts/CountTable_pirna.txt"
-    params: bam_dir="./piRNA/bam/",
-            count_dir="./piRNA/counts/"
-    shell: "python sRNA_tools.py count_pirna --bam-dir {params.bam_dir} --count-dir {params.count_dir}"     
+    run: R("""
+            library(faradr);
+            CountTable("{PIRNA_BAM_DIR}", "{PIRNA_BASE_NAME}", "{PIRNA_COUNTS_FILE}");
+            """)
 
-#
 # sam to bam, sort and index
 rule sam2bam_sort_index:
     input: "./piRNA/bam/{sample}_pirna_aln.sam"

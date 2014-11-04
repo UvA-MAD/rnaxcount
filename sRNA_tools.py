@@ -72,8 +72,13 @@ def count_pirna(bam_dir, count_dir):
     count_dict = {}
     for bam, sample in zip(bams, samples):
         samfile = pysam.Samfile(os.path.join(bam_dir, bam), 'rb')
-        counts = [samfile.count(reference=ref) for ref in refs]
-        count_dict[sample] = counts
+        alns = samfile.fetch()
+        counts = [0] * len(refs)
+        for aln in alns:
+            print("bam")
+
+            counts[aln.rname] += 1
+
 
     df = pd.DataFrame.from_dict(count_dict)
     df.index = refs
