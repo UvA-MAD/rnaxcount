@@ -87,11 +87,11 @@ rule count_piRNA:
     run: R("""
             library(faradr);
             CountTable("{PIRNA_BAM_DIR}", "{PIRNA_BASE_NAME}", "{PIRNA_COUNTS_FILE}");
-            """)
+          """) 
 
-# sam to bam, sort and index
-rule sam2bam_sort_index:
-    input: "./piRNA/bam/{sample}_pirna_aln.sam"
+# piRNA sam to bam, sort and index
+rule pirna_sam2bam_sort_index:
+    input:  "./piRNA/bam/{sample}_pirna_aln.sam"
     output: "./piRNA/bam/{sample}_pirna_aln.bam",
             "./piRNA/bam/{sample}_pirna_aln_sorted.bam",
             "./piRNA/bam/{sample}_pirna_aln_sorted.bam.bai"
@@ -129,29 +129,27 @@ rule merge_miRNA_counts:
     shell: "python sRNA_tools.py merge_count_tables --dir ./miRNA/counts --suffix _mirna.csv --out {output}"     
 
 rule miRNA_count:
-    input: "./miRNA/bam/{sample}_mirna_aln_sorted.bam"
+    input: "./miRNA/bam/{sample}_mirna_aln_sorted.bam",
+           "./miRNA/bam/{sample}_mirna_aln_sorted.bam.bai"
     output: "./miRNA/counts/{sample}_mirna.csv"
     message: "Counting miRNAs"
     shell: "python sRNA_tools.py count_mirnas --dat {MIRNA_ANNOTATIONS} --bamfile {input} --out {output}"
 
-rule miRNA_aln_index:
-    input: "./miRNA/bam/{sample}_mirna_aln_sorted.bam"
-    output: "./miRNA/bam/{sample}_mirna_aln_sorted.bam.bai"
-    message: "Indexing miRNA alignments"
-    shell: "samtools index {input}"
-
-rule miRNA_aln_sort:
-    input: "./miRNA/bam/{sample}_mirna_aln.bam"
-    output: "./miRNA/bam/{sample}_mirna_aln_sorted.bam"
-    params: base="miRNA/bam/{sample}_mirna_aln_sorted"
-    message: "Sorting miRNA alignments"
-    shell: "samtools sort {input} {params.base}"
-
-rule miRNA_sam2bam:
+# miRNA sam to bam, sort and index
+rule mirna_sam2bam_sort_index:
     input: "./miRNA/bam/{sample}_mirna_aln.sam"
-    output: "./miRNA/bam/{sample}_mirna_aln.bam"
-    message: "Converting miRNA alignments from sam to bam"
-    shell: "samtools view -Sb {input} > {output}"
+    output: "./miRNA/bam/{sample}_mirna_aln_sorted.bam",
+            "./miRNA/bam/{sample}_mirna_aln_sorted.bam.bai"
+    params: bam="./piRNA/bam/{sample}_pirna_aln.bam",
+            sorted_base="./piRNA/bam/{sample}_pirna_aln_sorted",
+            sorted_bam="./piRNA/bam/{sample}_pirna_aln_sorted.bam"
+    message: "Converting miRNA alignments to bam, sorting and indexing."
+    shell:
+        """
+        samtools view -bS {input} > {params.bam}
+        samtools sort {params.bam} {params.sorted_base}
+        samtools index {params.sorted_bam}
+        """
 
 rule aln_miRNA:
     """
@@ -231,24 +229,21 @@ rule spike_count:
     message: "Filtering and counting spike reads"
     shell: "python sRNA_tools.py count_spikes --basename {params.basename} --bam-dir {params.bam_dir} --count-dir {params.count_dir}" 
 
-rule spike_aln_index:
-    input: "./spikes/bam/{sample}_spike_aln_sorted.bam"
-    output: "./spikes/bam/{sample}_spike_aln_sorted.bam.bai"
-    message: "Indexing spike alignments"
-    shell: "samtools index {input}"
-
-rule spike_aln_sort:
-    input: "./spikes/bam/{sample}_spike_aln.bam"
-    output: "./spikes/bam/{sample}_spike_aln_sorted.bam"
-    params: base="spikes/bam/{sample}_spike_aln_sorted"
-    message: "Sorting spike alignments"
-    shell: "samtools sort {input} {params.base}"
-
-rule spike_sam2bam:
+# spikeRNA sam to bam, sort and index
+rule spikes_sam2bam_sort_index:
     input: "./spikes/bam/{sample}_spike_aln.sam"
-    output: "./spikes/bam/{sample}_spike_aln.bam"
-    message: "Converting sam to bam"
-    shell: "samtools view -Sb {input} > {output}"
+    output: "./spikes/bam/{sample}_spike_aln_sorted.bam",
+            "./spikes/bam/{sample}_spike_aln_sorted.bam.bai"
+    params: bam="./spikes/bam/{sample}_spike_aln.bam",
+            sorted_base="./spikes/bam/{sample}_spike_aln_sorted",
+            sorted_bam="./spikes/bam/{sample}_spike_aln_sorted.bam"
+    message: "Converting miRNA alignments to bam, sorting and indexing."
+    shell:
+        """
+        samtools view -bS {input} > {params.bam}
+        samtools sort {params.bam} {params.sorted_base}
+        samtools index {params.sorted_bam}
+        """
     
 rule aln_spikes:
     """
