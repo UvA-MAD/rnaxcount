@@ -4,7 +4,7 @@ from snakemake.utils import R
 SPEC = "dre"
 
 # reference spikein sequences
-SPIKES_REF = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference-db/RBAB/spikes/spikes40"
+SPIKES_REF = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference-db/RBAB/spikes-smallRNAseq/spikes40"
 
 MIRNA_REF = "/zfs/datastore0/group_root/MAD-RBAB/05_Reference-db/external/dre/RNA/miRNA/hairpin21"
 
@@ -72,10 +72,10 @@ PIRNA_BOWTIE_PARAMS_LIST = [
 PIRNA_BOWTIE_PARAMS = " ".join(PIRNA_BOWTIE_PARAMS_LIST)
 
 rule all:
-    input: "./spikes/counts/CountTable_spike.txt",
-           "./miRNA/counts/CountTable_mirna.txt",
+    input: "./miRNA/counts/CountTable_mirna.txt",
            "./piRNA/counts/CountTable_pirna.txt",
-           "./spikes/counts/norm_count.png"
+           "./spikes/counts/norm_count.png",
+           "./spikes/counts/CountTable_norm_spike.txt"
 
 # count piRNAs
 PIRNA_BAM_DIR = "./piRNA/bam/"
@@ -190,14 +190,14 @@ rule create_miRNA_dir:
 
 # R command in snakemake don't take input and output
 # putting them into constants
-SPIKE_COUNT = "./spikes/counts/CountTable_spike.txt"
+SPIKE_COUNT = "./spikes/counts/CountTable_size_spike.txt"
 TOTAL_COUNT = os.path.join(SPIKE_COUNTS_DIR, "total_reads.csv")
 COUNT_PNG = "./spikes/counts/count.png",
 NORM_COUNT_PNG = "./spikes/counts/norm_count.png"
 # make spike count plots
 rule spike_count_plots:
     input: totalcount=os.path.join(SPIKE_COUNTS_DIR, "total_reads.csv"),
-           spikecount="./spikes/counts/CountTable_spike.txt"
+           spikecount="./spikes/counts/CountTable_size_spike.txt"
     output: countpng="./spikes/counts/count.png",
             normcountpng="./spikes/counts/norm_count.png"
     run: R("""
@@ -212,7 +212,7 @@ rule spike_count_plots:
              
 # calculate amount of reads per sample for spike normalise plots
 rule total_reads_count:
-   input: "./spikes/counts/CountTable_spike.txt"
+   input: "./spikes/counts/CountTable_size_spike.txt"
    params: fqdir=FQ_DIR,
            spikedir = SPIKE_COUNTS_DIR
    output: os.path.join(SPIKE_COUNTS_DIR, "total_reads.csv") 
@@ -225,7 +225,8 @@ rule spike_count:
     params: basename="_spike_aln_sorted.bam" ,
             bam_dir="./spikes/bam",
             count_dir="./spikes/counts"
-    output: "./spikes/counts/CountTable_spike.txt"
+    output: "./spikes/counts/CountTable_size_spike.txt",
+            "./spikes/counts/CountTable_norm_spike.txt"
     message: "Filtering and counting spike reads"
     shell: "python sRNA_tools.py count_spikes --basename {params.basename} --bam-dir {params.bam_dir} --count-dir {params.count_dir}" 
 

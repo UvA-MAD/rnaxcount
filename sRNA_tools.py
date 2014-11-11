@@ -21,11 +21,11 @@ def filter_and_count(bamfile):
     """
     samfile = pysam.Samfile(bamfile, "rb")
     # get names of size spikein that reads have been align to
-    size_spike_refs = [r for r in samfile.references if r.startswith("SSPK_")]
+    spike_refs = samfile.references
 
     # make a dictionary to lookup min lenght of aligned reads
     min_read_size = {}
-    for spike in size_spike_refs:
+    for spike in spike_refs:
         size = int(spike.split("_")[2])
         if size <= 40:
             min_size = round(0.8 * size)
@@ -35,7 +35,7 @@ def filter_and_count(bamfile):
 
     # iterate over references and count reads that have min_read_size
     spike_counts = defaultdict(int)
-    for spike in size_spike_refs:
+    for spike in spike_refs:
         alignments = samfile.fetch(spike)
         for aln in alignments:
             if aln.rlen >= min_read_size[spike]:
@@ -75,17 +75,13 @@ def count_pirna(bam_dir, count_dir):
         alns = samfile.fetch()
         counts = [0] * len(refs)
         for aln in alns:
-            print("bam")
-
             counts[aln.rname] += 1
-
 
     df = pd.DataFrame.from_dict(count_dict)
     df.index = refs
     csv_path = os.path.join(count_dir, "CountTable_pirna.txt")
     df.to_csv(csv_path, sep="\t")
 
-    # extract sample names from bam file names
 
 # subcommand used for filtering and counting spikes
 @cli.command()
@@ -122,10 +118,22 @@ def count_spikes(basename, bam_dir, count_dir):
     if not os.path.exists(count_dir):
         os.makedirs(count_dir)
 
+    # fill NaN's with zeros (zero counts)
+    count_table = count_table.fillna(value=0)
+    # split into normalisation and size spike count tables
+    is_size_spike = count_table.index.map(lambda x: x.startswith('SSPK_'))
+    is_norm_spike = count_table.index.map(lambda x: x.startswith('NSPK_'))
+    size_spike_table = count_table[is_size_spike]
+    norm_spike_table = count_table[is_norm_spike]
+
     # save count table as tab delimited file
-    count_file = os.path.join(count_dir, "CountTable_spike.txt")
-    with open(count_file, 'w') as fh:
-        count_table.to_csv(fh, sep="\t")
+    size_count_file = os.path.join(count_dir, "CountTable_size_spike.txt")
+    with open(size_count_file, 'w') as fh:
+        size_spike_table.to_csv(fh, sep="\t")
+
+    norm_count_file = os.path.join(count_dir, "CountTable_norm_spike.txt")
+    with open(norm_count_file, 'w') as fh:
+        norm_spike_table.to_csv(fh, sep="\t")
 
 
 # subcommand used for counting number of reads
